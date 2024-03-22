@@ -1,5 +1,5 @@
 use argh::FromArgs;
-use solr_post::{solr_index, PostConfig};
+use solr_post::{solr_post, PostConfig};
 use std::sync::{Arc, Mutex};
 
 #[derive(FromArgs)]
@@ -78,5 +78,5 @@ async fn main() {
         println!("\nFinished indexing.");
     };
 
-    solr_index(args.into(), on_start, on_next, on_finish).await;
+    solr_post(args.into(), on_start, on_next, on_finish).await;
 }

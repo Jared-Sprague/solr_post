@@ -23,7 +23,7 @@ pub struct PostConfig {
 }
 
 #[allow(clippy::redundant_clone)]
-pub async fn solr_index(
+pub async fn solr_post(
     config: PostConfig,
     mut on_start: impl FnMut(u64),
     mut on_next: impl FnMut(u64),
