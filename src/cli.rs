@@ -1,5 +1,6 @@
 use argh::FromArgs;
 use solr_post::{solr_post, PostConfig};
+use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
 
 #[derive(FromArgs)]
@@ -72,6 +73,7 @@ async fn main() {
             "{}/{} indexed {:.2}%\r",
             indexed_count, *total_files_to_index, percetn_complete
         );
+        io::stdout().flush().unwrap(); // Flush the output buffer
     };
 
     let on_finish = || {
