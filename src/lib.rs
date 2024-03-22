@@ -2,7 +2,7 @@ use std::{
     collections::HashSet,
     fs::File,
     io::Read,
-    path::Path,
+    path::{Path, PathBuf},
     sync::{Arc, RwLock},
 };
 
@@ -14,19 +14,26 @@ use wax::{Glob, WalkEntry, WalkError};
 
 const CONNCURENCY: usize = 8;
 
+pub struct PostConfig {
+    pub collection: String,
+    pub directory_path: PathBuf,
+    pub glob_pattern: String,
+}
+
 #[allow(clippy::redundant_clone)]
 pub async fn solr_index(
+    config: PostConfig,
     mut on_start: impl FnMut(u64),
     mut on_next: impl FnMut(u64),
     mut on_finish: impl FnMut(),
 ) -> usize {
-    let directory_path = "../mimir-cli/components/load/zola/zola-project/public/";
+    // let directory_path = "../mimir-cli/components/load/zola/zola-project/public/";
     // let directory_path = "public_small/";
 
     // TODO: make the glob a parameter
     // Glob .html files
-    let glob = Glob::new("**/*.html").unwrap();
-    let files: Vec<Result<WalkEntry, WalkError>> = glob.walk(directory_path).collect();
+    let glob = Glob::new(config.glob_pattern.as_str()).unwrap();
+    let files: Vec<Result<WalkEntry, WalkError>> = glob.walk(config.directory_path).collect();
     let files_to_index_set: HashSet<String>;
     let client = reqwest::Client::new();
 
@@ -39,6 +46,9 @@ pub async fn solr_index(
         // this clone is just so the main thread can hold onto a reference, to then print out later
         let files_to_index_ref = files_to_index.clone();
 
+        // use regex to find the string "mimir_solr_noindex" in the file
+        let noindex_re = Regex::new(r"solr_noindex").unwrap();
+
         // Scan for .html files that need indexing and store them in a vector
         files.par_iter().for_each(|file| match file {
             Ok(entry) => {
@@ -50,13 +60,7 @@ pub async fn solr_index(
                 let mut contents = String::new();
                 file.read_to_string(&mut contents).unwrap();
 
-                // use regex to find the string "mimir_solr_noindex" in the file
-                let noindex_re = Regex::new(r"mimir_solr_noindex").unwrap();
-
-                // use regex to find the string "mimir_solr_yesindex" in the file
-                let yesindex_re = Regex::new(r#"mimir_solr_yesindex"#).unwrap();
-
-                if !noindex_re.is_match(&contents) && yesindex_re.is_match(&contents) {
+                if !noindex_re.is_match(&contents) {
                     let mut files_to_index_set = files_to_index.write().expect("rwlock poisoned");
                     files_to_index_set.insert(path_str.to_string());
                 }

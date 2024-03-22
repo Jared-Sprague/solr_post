@@ -1,8 +1,40 @@
-use solr_post::solr_index;
+use argh::FromArgs;
+use solr_post::{solr_index, PostConfig};
 use std::sync::{Arc, Mutex};
+
+#[derive(FromArgs)]
+/// Post files to a solr collection
+struct SolrPostArgs {
+    /// the solr collection to post to
+    #[argh(option, short = 'c')]
+    collection: String,
+
+    /// the directory to search for files to post
+    #[argh(option, short = 'd')]
+    directory: String,
+
+    /// the glob pattern to use to find files to post
+    /// e.g. "**/*.html"
+    #[argh(option, short = 'g')]
+    glob_pattern: String,
+    // #[argh(positional)]
+    // last: String,
+}
+
+// implement into for SOlrPostArgs to convert it to PostConfig
+impl From<SolrPostArgs> for PostConfig {
+    fn from(val: SolrPostArgs) -> Self {
+        PostConfig {
+            collection: val.collection,
+            directory_path: val.directory.into(),
+            glob_pattern: val.glob_pattern,
+        }
+    }
+}
 
 #[tokio::main]
 async fn main() {
+    let args: SolrPostArgs = argh::from_env();
     let total_files_to_index = Arc::new(Mutex::new(0));
 
     let on_start = |total_files: u64| {
@@ -36,5 +68,5 @@ async fn main() {
         println!("\nFinished indexing.");
     };
 
-    solr_index(on_start, on_next, on_finish).await;
+    solr_index(args.into(), on_start, on_next, on_finish).await;
 }
