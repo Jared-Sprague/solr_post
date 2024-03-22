@@ -9,6 +9,14 @@ struct SolrPostArgs {
     #[argh(option, short = 'c')]
     collection: String,
 
+    /// the host of the solr server defaults to localhost
+    #[argh(option, short = 'h', default = "String::from(\"localhost\")")]
+    host: String,
+
+    /// the port of the solr server defaults to 8983
+    #[argh(option, short = 'p', default = "8983")]
+    port: u16,
+
     /// the directory to search for files to post
     #[argh(option, short = 'd')]
     directory: String,
@@ -26,6 +34,8 @@ impl From<SolrPostArgs> for PostConfig {
     fn from(val: SolrPostArgs) -> Self {
         PostConfig {
             collection: val.collection,
+            host: val.host,
+            port: val.port,
             directory_path: val.directory.into(),
             glob_pattern: val.glob_pattern,
         }

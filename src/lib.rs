@@ -15,6 +15,8 @@ use wax::{Glob, WalkEntry, WalkError};
 const CONNCURENCY: usize = 8;
 
 pub struct PostConfig {
+    pub host: String,
+    pub port: u16,
     pub collection: String,
     pub directory_path: PathBuf,
     pub glob_pattern: String,
@@ -27,15 +29,16 @@ pub async fn solr_index(
     mut on_next: impl FnMut(u64),
     mut on_finish: impl FnMut(),
 ) -> usize {
-    // let directory_path = "../mimir-cli/components/load/zola/zola-project/public/";
-    // let directory_path = "public_small/";
-
-    // TODO: make the glob a parameter
-    // Glob .html files
     let glob = Glob::new(config.glob_pattern.as_str()).unwrap();
     let files: Vec<Result<WalkEntry, WalkError>> = glob.walk(config.directory_path).collect();
     let files_to_index_set: HashSet<String>;
     let client = reqwest::Client::new();
+
+    // build the solr post url from the confg.host config.port
+    let solr_collection_update_endpoint = format!(
+        "http://{0}:{1}/solr/{2}/update/extract",
+        config.host, config.port, config.collection
+    );
 
     // scope for the MutexGuard accross async/await
     // see: https://rust-lang.github.io/rust-clippy/master/index.html#await_holding_lock
@@ -89,8 +92,8 @@ pub async fn solr_index(
 
         // format the solr post url using file_path_encoded as the resource.name & literal.id
         let solr_post_url = format!(
-            "http://localhost:8983/solr/portal/update/extract?resource.name={0}&literal.id={0}",
-            file_path_encoded
+            "{0}?resource.name={1}&literal.id={1}",
+            solr_collection_update_endpoint, file_path_encoded
         );
 
         // use reqwest::Client to post the file to solr using the Apache Tika update/extract handler
