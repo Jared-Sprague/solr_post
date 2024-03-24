@@ -12,9 +12,8 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use regex::Regex;
 use wax::{Glob, WalkEntry, WalkError};
 
-const CONNCURENCY: usize = 8;
-
 pub struct PostConfig {
+    pub concurrency: usize,
     pub host: String,
     pub port: u16,
     pub collection: String,
@@ -110,7 +109,7 @@ pub async fn solr_post(
             .send()
             .await
     }))
-    .buffer_unordered(CONNCURENCY);
+    .buffer_unordered(config.concurrency);
 
     info!("indexing {} files", total_files_to_index);
     let mut indexed_count = 0;

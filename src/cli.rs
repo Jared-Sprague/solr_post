@@ -22,7 +22,7 @@ struct SolrPostArgs {
     /// e.g. http://localhost:8983/solr/my_collection/update
     /// if this is set, the collection, host, and port are ignored
     #[argh(option)]
-    update_url: Option<String>,
+    url: Option<String>,
 
     /// the directory to search for files to post
     #[argh(option, short = 'd')]
@@ -36,8 +36,11 @@ struct SolrPostArgs {
         default = "String::from(\"xml,json,jsonl,csv,pdf,doc,docx,ppt,pptx,xls,xlsx,odt,odp,ods,ott,otp,ots,rtf,htm,html,txt,log\")"
     )]
     file_extensions: String,
-    // #[argh(positional)]
-    // last: String,
+
+    /// concurrency level defauls to 8
+    /// the number of concurrent requests to make to the solr server
+    #[argh(option, default = "8")]
+    concurrency: usize,
 }
 
 // implement into for SOlrPostArgs to convert it to PostConfig
@@ -53,7 +56,8 @@ impl From<SolrPostArgs> for PostConfig {
                 .split(',')
                 .map(|s| s.to_string())
                 .collect(),
-            update_url: val.update_url,
+            update_url: val.url,
+            concurrency: val.concurrency,
         }
     }
 }
