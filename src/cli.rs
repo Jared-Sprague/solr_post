@@ -18,14 +18,24 @@ struct SolrPostArgs {
     #[argh(option, short = 'p', default = "8983")]
     port: u16,
 
+    /// base Solr update URL
+    /// e.g. http://localhost:8983/solr/my_collection/update
+    /// if this is set, the collection, host, and port are ignored
+    #[argh(option)]
+    update_url: Option<String>,
+
     /// the directory to search for files to post
     #[argh(option, short = 'd')]
     directory: String,
 
-    /// the glob pattern to use to find files to post
-    /// e.g. "**/*.html"
-    #[argh(option, short = 'g')]
-    glob_pattern: String,
+    /// the file extensions to post defaults to xml,json,jsonl,csv,pdf,doc,docx,ppt,pptx,xls,xlsx,odt,odp,ods,ott,otp,ots,rtf,htm,html,txt,log
+    /// e.g. "html,txt,json"
+    #[argh(
+        option,
+        short = 'f',
+        default = "String::from(\"xml,json,jsonl,csv,pdf,doc,docx,ppt,pptx,xls,xlsx,odt,odp,ods,ott,otp,ots,rtf,htm,html,txt,log\")"
+    )]
+    file_extensions: String,
     // #[argh(positional)]
     // last: String,
 }
@@ -38,7 +48,12 @@ impl From<SolrPostArgs> for PostConfig {
             host: val.host,
             port: val.port,
             directory_path: val.directory.into(),
-            glob_pattern: val.glob_pattern,
+            file_extensions: val
+                .file_extensions
+                .split(',')
+                .map(|s| s.to_string())
+                .collect(),
+            update_url: val.update_url,
         }
     }
 }

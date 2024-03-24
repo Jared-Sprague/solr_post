@@ -19,7 +19,8 @@ pub struct PostConfig {
     pub port: u16,
     pub collection: String,
     pub directory_path: PathBuf,
-    pub glob_pattern: String,
+    pub file_extensions: Vec<String>,
+    pub update_url: Option<String>,
 }
 
 #[allow(clippy::redundant_clone)]
@@ -29,16 +30,21 @@ pub async fn solr_post(
     mut on_next: impl FnMut(u64),
     mut on_finish: impl FnMut(),
 ) -> usize {
-    let glob = Glob::new(config.glob_pattern.as_str()).unwrap();
+    let file_extensions_joined = config.file_extensions.join(",");
+    let glob_expression = format!("**/*.{{{}}}", file_extensions_joined);
+    let glob = Glob::new(glob_expression.as_str()).unwrap();
     let files: Vec<Result<WalkEntry, WalkError>> = glob.walk(config.directory_path).collect();
     let files_to_index_set: HashSet<String>;
     let client = reqwest::Client::new();
 
-    // build the solr post url from the confg.host config.port
-    let solr_collection_update_endpoint = format!(
-        "http://{0}:{1}/solr/{2}/update/extract",
-        config.host, config.port, config.collection
-    );
+    // build the solr post url from the config. If the update_url is set, use that, otherwise build the url
+    let solr_collection_update_endpoint = match &config.update_url {
+        Some(url) => url.clone(),
+        None => format!(
+            "http://{0}:{1}/solr/{2}/update/extract",
+            config.host, config.port, config.collection
+        ),
+    };
 
     // scope for the MutexGuard accross async/await
     // see: https://rust-lang.github.io/rust-clippy/master/index.html#await_holding_lock
