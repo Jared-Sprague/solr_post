@@ -29,7 +29,7 @@ Options:
   -p, --port        the port of the solr server defaults to 8983
   --url             base Solr update URL e.g.
                     http://localhost:8983/solr/my_collection/update if this is
-                    set, the collection, host, and port are ignored
+                    set, the -c, -h, -p options are all ignored
   -d, --directory   the directory to search for files to post
   -f, --file-extensions
                     the file extensions to post defaults to
