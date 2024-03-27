@@ -35,13 +35,13 @@ pub struct PostConfig {
     /// the file extensions to post defaults to xml,json,jsonl,csv,pdf,doc,docx,ppt,pptx,xls,xlsx,odt,odp,ods,ott,otp,ots,rtf,htm,html,txt,log
     pub file_extensions: Vec<String>,
 
-    /// base Solr update URL this will override host, port, and collection
+    /// base Solr update URL this will override host, port, and collection e.g. "http://localhost:8983/solr/my_collection/update"
     pub update_url: Option<String>,
 
-    /// exclude files who's content contains this regex pattern, this takes precedence over include_regex
+    /// exclude files who's content contains this regex pattern, this takes precedence over include_regex e.g. "no_index"
     pub exclued_regex: Option<Regex>,
 
-    /// include only files who's content contains this regex pattern
+    /// include only files who's content contains this regex pattern e.g. "index_me"
     pub include_regex: Option<Regex>,
 
     /// basic auth user credentials e.g. "user:pass"
