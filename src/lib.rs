@@ -44,7 +44,7 @@ pub struct PostConfig {
     /// include only files who's content contains this regex pattern
     pub include_regex: Option<Regex>,
 
-    /// basic auth user credentials
+    /// basic auth user credentials e.g. "user:pass"
     pub basic_auth_creds: Option<String>,
 }
 
