@@ -138,12 +138,15 @@ pub async fn solr_post(
         let mime_type = from_path(&file_path_absolute).first_or_octet_stream();
 
         // post the file to solr using the Apache Tika update/extract handler
-        client
-            .post(solr_post_url)
-            .header(header::CONTENT_TYPE, mime_type.to_string())
-            .body(contents)
-            .send()
-            .await
+        (
+            client
+                .post(solr_post_url)
+                .header(header::CONTENT_TYPE, mime_type.to_string())
+                .body(contents)
+                .send()
+                .await,
+            file_path_absolute,
+        )
     }))
     .buffer_unordered(config.concurrency);
 
@@ -156,9 +159,20 @@ pub async fn solr_post(
     }
 
     // loop through the stream of futures solr POST requests and increment the progress bar
-    while let Some(res) = posts.next().await {
+    while let Some((res, file_path)) = posts.next().await {
         match res {
-            Ok(_) => {
+            Ok(response) => {
+                if response.status().is_success() {
+                    info!("indexed: {}", file_path.to_str().unwrap());
+                } else {
+                    eprintln!(
+                        "POST {} {}\nIs collection correct?\nfailed to index file: {}",
+                        response.url(),
+                        response.status(),
+                        file_path.to_str().unwrap(),
+                    );
+                }
+
                 indexed_count += 1;
 
                 if let Some(ref mut on_next) = on_next {
@@ -167,17 +181,30 @@ pub async fn solr_post(
                 }
             }
             Err(e) => {
-                eprintln!("{}", e)
+                eprintln!("{}\nIs Solr server running and collection available?", e)
             }
         }
     }
 
     // send GET request to solr to commit the changes
-    client
+    let response = client
         .get("http://localhost:8983/solr/portal/update?commit=true")
         .send()
-        .await
-        .unwrap();
+        .await;
+
+    // check if the commit was successful
+    match response {
+        Ok(response) => {
+            if response.status().is_success() {
+                info!("commit successful");
+            } else {
+                info!("commit failed");
+            }
+        }
+        Err(e) => {
+            eprintln!("{}\nIs Solr server running and collection available?", e);
+        }
+    }
 
     // output time
     info!("indexing complete");
