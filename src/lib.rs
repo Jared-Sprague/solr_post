@@ -6,11 +6,13 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use base64::prelude::*;
 use futures::StreamExt;
 use log::info;
 use mime_guess::from_path;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use regex::Regex;
+use reqwest::{header, Client};
 use wax::{Glob, WalkEntry, WalkError};
 
 pub struct PostConfig {
@@ -23,7 +25,7 @@ pub struct PostConfig {
     pub update_url: Option<String>,
     pub exclued_regex: Option<Regex>,
     pub include_regex: Option<Regex>,
-    pub basic_auth_creds: Option<(String, String)>,
+    pub basic_auth_creds: Option<String>,
 }
 
 #[allow(clippy::redundant_clone)]
@@ -38,7 +40,23 @@ pub async fn solr_post(
     let glob = Glob::new(glob_expression.as_str()).unwrap();
     let files: Vec<Result<WalkEntry, WalkError>> = glob.walk(config.directory_path).collect();
     let files_to_index_set: HashSet<String>;
-    let client = reqwest::Client::new();
+    let mut default_headers = header::HeaderMap::new();
+
+    // insert basic auth header if basic_auth_creds is set
+    if let Some(creds) = &config.basic_auth_creds {
+        // encode the username and password to base64
+        let auth_value = BASE64_STANDARD.encode(creds);
+        default_headers.insert(
+            header::AUTHORIZATION,
+            header::HeaderValue::from_str(&format!("Basic {}", auth_value)).unwrap(),
+        );
+    }
+
+    // build the client with default_headers
+    let client = Client::builder()
+        .default_headers(default_headers)
+        .build()
+        .unwrap();
 
     // build the solr post url from the config. If the update_url is set, use that, otherwise build the url
     let solr_collection_update_endpoint = match &config.update_url {
@@ -119,10 +137,10 @@ pub async fn solr_post(
         // guess the mime type of the file from the file path e.g. "text/html"
         let mime_type = from_path(&file_path_absolute).first_or_octet_stream();
 
-        // use reqwest::Client to post the file to solr using the Apache Tika update/extract handler
+        // post the file to solr using the Apache Tika update/extract handler
         client
             .post(solr_post_url)
-            .header(reqwest::header::CONTENT_TYPE, mime_type.to_string())
+            .header(header::CONTENT_TYPE, mime_type.to_string())
             .body(contents)
             .send()
             .await

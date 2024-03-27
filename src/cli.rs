@@ -25,6 +25,11 @@ struct SolrPostArgs {
     #[argh(option)]
     url: Option<String>,
 
+    /// basic auth user credentials
+    /// e.g. "username:password"
+    #[argh(option, short = 'u')]
+    user: Option<String>,
+
     /// the directory to search for files to post
     #[argh(option, short = 'd')]
     directory: String,
@@ -84,7 +89,7 @@ impl From<SolrPostArgs> for PostConfig {
                 .include_regex
                 .map(|s| Regex::new(&format!("(?i){}", s)).unwrap()),
 
-            basic_auth_creds: None,
+            basic_auth_creds: val.user,
         }
     }
 }
