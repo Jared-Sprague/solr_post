@@ -20,14 +20,16 @@ pub struct PostConfig {
     pub directory_path: PathBuf,
     pub file_extensions: Vec<String>,
     pub update_url: Option<String>,
+    pub exclued_regex: Option<Regex>,
+    pub include_regex: Option<Regex>,
 }
 
 #[allow(clippy::redundant_clone)]
 pub async fn solr_post(
     config: PostConfig,
-    mut on_start: impl FnMut(u64),
-    mut on_next: impl FnMut(u64),
-    mut on_finish: impl FnMut(),
+    mut on_start: Option<impl FnMut(u64)>,
+    mut on_next: Option<impl FnMut(u64)>,
+    mut on_finish: Option<impl FnMut()>,
 ) -> usize {
     let file_extensions_joined = config.file_extensions.join(",");
     let glob_expression = format!("**/*.{{{}}}", file_extensions_joined);
@@ -54,9 +56,6 @@ pub async fn solr_post(
         // this clone is just so the main thread can hold onto a reference, to then print out later
         let files_to_index_ref = files_to_index.clone();
 
-        // use regex to find the string "mimir_solr_noindex" in the file
-        let noindex_re = Regex::new(r"solr_noindex").unwrap();
-
         // Scan for .html files that need indexing and store them in a vector
         files.par_iter().for_each(|file| match file {
             Ok(entry) => {
@@ -68,10 +67,24 @@ pub async fn solr_post(
                 let mut contents = String::new();
                 file.read_to_string(&mut contents).unwrap();
 
-                if !noindex_re.is_match(&contents) {
-                    let mut files_to_index_set = files_to_index.write().expect("rwlock poisoned");
-                    files_to_index_set.insert(path_str.to_string());
+                // exclude and include rules. Note if exclude takes precedence over include
+
+                if let Some(exclude_regex) = config.exclued_regex.as_ref() {
+                    if exclude_regex.is_match(&contents) {
+                        // this file should be excluded, skip it and continue to the next file
+                        return;
+                    }
                 }
+
+                if let Some(include_regex) = config.include_regex.as_ref() {
+                    if !include_regex.is_match(&contents) {
+                        // this file should not be included, skip it and continue to the next file
+                        return;
+                    }
+                }
+
+                let mut files_to_index_set = files_to_index.write().expect("rwlock poisoned");
+                files_to_index_set.insert(path_str.to_string());
             }
             Err(e) => println!("error: {:?}", e),
         });
@@ -114,15 +127,21 @@ pub async fn solr_post(
     info!("indexing {} files", total_files_to_index);
     let mut indexed_count = 0;
 
-    on_start(total_files_to_index as u64);
+    if let Some(ref mut on_start) = on_start {
+        // call the start callback with the total_files_to_index
+        on_start(total_files_to_index as u64);
+    }
 
     // loop through the stream of futures solr POST requests and increment the progress bar
     while let Some(res) = posts.next().await {
         match res {
             Ok(_) => {
                 indexed_count += 1;
-                // call the progress callback
-                on_next(indexed_count);
+
+                if let Some(ref mut on_next) = on_next {
+                    // call the progress callback with the indexed_count
+                    on_next(indexed_count as u64);
+                }
             }
             Err(e) => {
                 eprintln!("{}", e)
@@ -140,8 +159,10 @@ pub async fn solr_post(
     // output time
     info!("indexing complete");
 
-    // call the finish callback
-    on_finish();
+    if let Some(ref mut on_finish) = on_finish {
+        // call the finish callback
+        on_finish();
+    }
 
     total_files_to_index
 }

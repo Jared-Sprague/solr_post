@@ -1,4 +1,5 @@
 use argh::FromArgs;
+use regex::Regex;
 use solr_post::{solr_post, PostConfig};
 use std::io::{self, Write};
 use std::sync::{Arc, Mutex};
@@ -41,6 +42,21 @@ struct SolrPostArgs {
     /// the number of concurrent requests to make to the solr server
     #[argh(option, default = "8")]
     concurrency: usize,
+
+    /// exclude files who's content contains this regex pattern
+    /// e.g. "no_index"
+    /// this is case insensitive
+    /// if this is set, it will override the include_regex
+    /// and only files files who's content does not contains this pattern will be indexed
+    #[argh(option, short = 'e')]
+    exclude_regex: Option<String>,
+
+    /// include only files who's content contains this regex pattern
+    /// e.g. "index_me"
+    /// this is case insensitive
+    /// if this is set, only files files who's content contains this pattern will be indexed
+    #[argh(option, short = 'i')]
+    include_regex: Option<String>,
 }
 
 // implement into for SOlrPostArgs to convert it to PostConfig
@@ -58,6 +74,8 @@ impl From<SolrPostArgs> for PostConfig {
                 .collect(),
             update_url: val.url,
             concurrency: val.concurrency,
+            exclued_regex: val.exclude_regex.map(|s| Regex::new(&s).unwrap()),
+            include_regex: val.include_regex.map(|s| Regex::new(&s).unwrap()),
         }
     }
 }
@@ -99,5 +117,5 @@ async fn main() {
         println!("\nFinished indexing.");
     };
 
-    solr_post(args.into(), on_start, on_next, on_finish).await;
+    solr_post(args.into(), Some(on_start), Some(on_next), Some(on_finish)).await;
 }
