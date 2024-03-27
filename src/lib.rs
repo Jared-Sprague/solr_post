@@ -8,6 +8,7 @@ use std::{
 
 use futures::StreamExt;
 use log::info;
+use mime_guess::from_path;
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use regex::Regex;
 use wax::{Glob, WalkEntry, WalkError};
@@ -22,6 +23,7 @@ pub struct PostConfig {
     pub update_url: Option<String>,
     pub exclued_regex: Option<Regex>,
     pub include_regex: Option<Regex>,
+    pub basic_auth_creds: Option<(String, String)>,
 }
 
 #[allow(clippy::redundant_clone)]
@@ -114,10 +116,13 @@ pub async fn solr_post(
             solr_collection_update_endpoint, file_path_encoded
         );
 
+        // guess the mime type of the file from the file path e.g. "text/html"
+        let mime_type = from_path(&file_path_absolute).first_or_octet_stream();
+
         // use reqwest::Client to post the file to solr using the Apache Tika update/extract handler
         client
             .post(solr_post_url)
-            .header(reqwest::header::CONTENT_TYPE, "text/html")
+            .header(reqwest::header::CONTENT_TYPE, mime_type.to_string())
             .body(contents)
             .send()
             .await

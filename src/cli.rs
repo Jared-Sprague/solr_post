@@ -44,17 +44,18 @@ struct SolrPostArgs {
     concurrency: usize,
 
     /// exclude files who's content contains this regex pattern
-    /// e.g. "no_index"
-    /// this is case insensitive
-    /// if this is set, it will override the include_regex
-    /// and only files files who's content does not contains this pattern will be indexed
+    /// e.g. "no_index".
+    /// only files files who's content does not contains this pattern will be indexed.
+    /// this is case insensitive.
+    /// if both exclude_regex and include_regex are set, exclude_regex will takes precedence.
     #[argh(option, short = 'e')]
     exclude_regex: Option<String>,
 
     /// include only files who's content contains this regex pattern
-    /// e.g. "index_me"
-    /// this is case insensitive
-    /// if this is set, only files files who's content contains this pattern will be indexed
+    /// e.g. "index_me".
+    /// only files files who's content contains this pattern will be indexed.
+    /// this is case insensitive.
+    /// if both exclude_regex and include_regex are set, exclude_regex will takes precedence.
     #[argh(option, short = 'i')]
     include_regex: Option<String>,
 }
@@ -74,8 +75,16 @@ impl From<SolrPostArgs> for PostConfig {
                 .collect(),
             update_url: val.url,
             concurrency: val.concurrency,
-            exclued_regex: val.exclude_regex.map(|s| Regex::new(&s).unwrap()),
-            include_regex: val.include_regex.map(|s| Regex::new(&s).unwrap()),
+
+            // create regex objects from the exclude and include regex strings ignore case
+            exclued_regex: val
+                .exclude_regex
+                .map(|s| Regex::new(&format!("(?i){}", s)).unwrap()),
+            include_regex: val
+                .include_regex
+                .map(|s| Regex::new(&format!("(?i){}", s)).unwrap()),
+
+            basic_auth_creds: None,
         }
     }
 }
