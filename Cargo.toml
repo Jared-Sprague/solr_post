@@ -1,6 +1,6 @@
 [package]
 name = "solr_post"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2021"
 description = "A simple command line tool and library to post files in a directory to a Solr server"
 license = "MIT"

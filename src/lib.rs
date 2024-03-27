@@ -15,25 +15,92 @@ use regex::Regex;
 use reqwest::{header, Client};
 use wax::{Glob, WalkEntry, WalkError};
 
+/// Configuration for posting files to Solr server
 pub struct PostConfig {
+    /// the number of concurrent requests to make to the solr server defaults to 8
     pub concurrency: usize,
+
+    /// the host of the solr server defaults to localhost
     pub host: String,
+
+    /// the port of the solr server defaults to 8983
     pub port: u16,
+
+    /// the solr collection to post to collection1
     pub collection: String,
+
+    /// the directory to search for files to post defaults to current directory
     pub directory_path: PathBuf,
+
+    /// the file extensions to post defaults to xml,json,jsonl,csv,pdf,doc,docx,ppt,pptx,xls,xlsx,odt,odp,ods,ott,otp,ots,rtf,htm,html,txt,log
     pub file_extensions: Vec<String>,
+
+    /// base Solr update URL this will override host, port, and collection
     pub update_url: Option<String>,
+
+    /// exclude files who's content contains this regex pattern, this takes precedence over include_regex
     pub exclued_regex: Option<Regex>,
+
+    /// include only files who's content contains this regex pattern
     pub include_regex: Option<Regex>,
+
+    /// basic auth user credentials
     pub basic_auth_creds: Option<String>,
 }
 
+// defaults for PostConfig
+impl Default for PostConfig {
+    fn default() -> Self {
+        PostConfig {
+            concurrency: 8,
+            host: String::from("localhost"),
+            port: 8983,
+            collection: String::from("collection1"),
+            directory_path: PathBuf::from("./"),
+            file_extensions: vec![
+                String::from("xml"),
+                String::from("json"),
+                String::from("jsonl"),
+                String::from("csv"),
+                String::from("pdf"),
+                String::from("doc"),
+                String::from("docx"),
+                String::from("ppt"),
+                String::from("pptx"),
+                String::from("xls"),
+                String::from("xlsx"),
+                String::from("odt"),
+                String::from("odp"),
+                String::from("ods"),
+                String::from("ott"),
+                String::from("otp"),
+                String::from("ots"),
+                String::from("rtf"),
+                String::from("htm"),
+                String::from("html"),
+                String::from("txt"),
+                String::from("log"),
+            ],
+            update_url: None,
+            exclued_regex: None,
+            include_regex: None,
+            basic_auth_creds: None,
+        }
+    }
+}
+
+/// Post files to Solr server concurrently based on the configuration
+/// optionally you can provide callbacks for on_start, on_next, and on_finish
+/// on_start will be called with the total number of files to index
+/// on_next will be called with the number of files indexed for tracking progress
+/// on_finish will be called when the indexing is complete
+/// returns the total number of files indexed
 #[allow(clippy::redundant_clone)]
 pub async fn solr_post(
     config: PostConfig,
-    mut on_start: Option<impl FnMut(u64)>,
-    mut on_next: Option<impl FnMut(u64)>,
-    mut on_finish: Option<impl FnMut()>,
+    mut on_start: Option<Box<dyn FnMut(u64)>>,
+    mut on_next: Option<Box<dyn FnMut(u64)>>,
+    mut on_finish: Option<Box<dyn FnMut()>>,
 ) -> usize {
     let file_extensions_joined = config.file_extensions.join(",");
     let glob_expression = format!("**/*.{{{}}}", file_extensions_joined);

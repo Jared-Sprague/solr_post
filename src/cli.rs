@@ -2,7 +2,7 @@ use argh::FromArgs;
 use regex::Regex;
 use solr_post::{solr_post, PostConfig};
 use std::io::{self, Write};
-use std::sync::{Arc, Mutex};
+use std::sync::{Mutex, OnceLock};
 
 #[derive(FromArgs)]
 /// Post files to a solr collection
@@ -97,22 +97,31 @@ impl From<SolrPostArgs> for PostConfig {
 #[tokio::main]
 async fn main() {
     let args: SolrPostArgs = argh::from_env();
-    let total_files_to_index = Arc::new(Mutex::new(0));
 
-    let on_start = |total_files: u64| {
-        let total_files_to_index = Arc::clone(&total_files_to_index);
+    // make sure that total_files_to_index lives for the entire duration of the program
+    // Make total_files_to_index 'static' to ensure it lives for the entire program duration
+    static TOTAL_FILES_TO_INDEX: OnceLock<Mutex<u64>> = OnceLock::new();
 
+    TOTAL_FILES_TO_INDEX.get_or_init(|| Mutex::new(0u64));
+
+    let on_start = move |total_files: u64| {
+        // Retrieve the total_files_to_index from the static variable
+        let total_files_to_index = TOTAL_FILES_TO_INDEX.get().unwrap();
+
+        // Lock the mutex to update the value
         let mut total_files_to_index = total_files_to_index.lock().unwrap();
 
-        // initialize the total_files_to_index to totla_files
+        // Initialize the total_files_to_index to total_files
         *total_files_to_index = total_files;
 
-        // total_files_to_index = total_files;
-        println!("Start indexing {} files", total_files_to_index);
+        println!(
+            "Start indexing {} files with concurrency {}",
+            total_files_to_index, args.concurrency
+        );
     };
 
-    let on_next = |indexed_count| {
-        let total_files_to_index = Arc::clone(&total_files_to_index);
+    let on_next = |indexed_count: u64| {
+        let total_files_to_index = TOTAL_FILES_TO_INDEX.get().unwrap();
 
         let total_files_to_index = total_files_to_index.lock().unwrap();
 
@@ -131,5 +140,11 @@ async fn main() {
         println!("\nFinished indexing.");
     };
 
-    solr_post(args.into(), Some(on_start), Some(on_next), Some(on_finish)).await;
+    solr_post(
+        args.into(),
+        Some(Box::new(on_start)),
+        Some(Box::new(on_next)),
+        Some(Box::new(on_finish)),
+    )
+    .await;
 }
