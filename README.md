@@ -1,6 +1,7 @@
 # solr_post
 
-This is a simple library and CLI for posting files in a directory to a Solr collection to be indexed. It is ment as a much faster (up to 10x) Rust based alternative to the java based [Solr Post Tool](https://solr.apache.org/guide/8_5/post-tool.html) that is included by default with Solr.
+This is a simple library and CLI for posting files in a directory to a Solr collection to be indexed. It is ment as a much faster (up to 10x) Rust based alternative to the java based [Solr Post Tool](https://solr.apache.org/guide/8_5/post-tool.html) that is included by default with Solr. It also includes additional features that are not included with the default Solr Post Tool, such as the ability
+to filter files with include/exclude regex patterns.
 
 ## Library
 
