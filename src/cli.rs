@@ -44,7 +44,9 @@ struct SolrPostArgs {
 }
 
 // implement into for SOlrPostArgs to convert it to PostConfig
-impl From<SolrPostArgs> for PostConfig {
+impl<S: solr_post::StartCallback, N: solr_post::NextCallback, F: solr_post::FinishCallback>
+    From<SolrPostArgs> for PostConfig<S, N, F>
+{
     fn from(val: SolrPostArgs) -> Self {
         PostConfig {
             collection: val.collection,
@@ -58,6 +60,9 @@ impl From<SolrPostArgs> for PostConfig {
                 .collect(),
             update_url: val.url,
             concurrency: val.concurrency,
+            on_start: None,
+            on_next: None,
+            on_finish: None,
         }
     }
 }
@@ -99,5 +104,5 @@ async fn main() {
         println!("\nFinished indexing.");
     };
 
-    solr_post(args.into(), on_start, on_next, on_finish).await;
+    solr_post(args.into()).await;
 }

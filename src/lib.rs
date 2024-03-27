@@ -12,7 +12,25 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use regex::Regex;
 use wax::{Glob, WalkEntry, WalkError};
 
-pub struct PostConfig {
+/// trait for implementing a callback when the indexing starts
+/// the value is the total number of files to index
+pub trait StartCallback {
+    fn on_start(&mut self, value: u64);
+}
+
+/// trait for implementing a callback when the indexing progresses
+/// the value is the current progress
+pub trait NextCallback {
+    fn on_next(&mut self, value: u64);
+}
+
+/// trait for implementing a callback when the indexing finishes
+/// this is useful for any tasks that need to be done after the indexing is complete
+pub trait FinishCallback {
+    fn on_finish(&mut self);
+}
+
+pub struct PostConfig<S: StartCallback, N: NextCallback, F: FinishCallback> {
     pub concurrency: usize,
     pub host: String,
     pub port: u16,
@@ -20,14 +38,14 @@ pub struct PostConfig {
     pub directory_path: PathBuf,
     pub file_extensions: Vec<String>,
     pub update_url: Option<String>,
+    pub on_start: Option<S>,
+    pub on_next: Option<N>,
+    pub on_finish: Option<F>,
 }
 
 #[allow(clippy::redundant_clone)]
-pub async fn solr_post(
-    config: PostConfig,
-    mut on_start: impl FnMut(u64),
-    mut on_next: impl FnMut(u64),
-    mut on_finish: impl FnMut(),
+pub async fn solr_post<S: StartCallback, N: NextCallback + std::marker::Copy, F: FinishCallback>(
+    config: PostConfig<S, N, F>,
 ) -> usize {
     let file_extensions_joined = config.file_extensions.join(",");
     let glob_expression = format!("**/*.{{{}}}", file_extensions_joined);
@@ -114,15 +132,21 @@ pub async fn solr_post(
     info!("indexing {} files", total_files_to_index);
     let mut indexed_count = 0;
 
-    on_start(total_files_to_index as u64);
+    if let Some(mut on_start) = config.on_start {
+        // call the on_start callback with the total number of files to index
+        on_start.on_start(total_files_to_index as u64);
+    }
 
     // loop through the stream of futures solr POST requests and increment the progress bar
     while let Some(res) = posts.next().await {
         match res {
             Ok(_) => {
                 indexed_count += 1;
-                // call the progress callback
-                on_next(indexed_count);
+
+                if let Some(mut on_next) = config.on_next {
+                    // call the on_next callback with the current progress
+                    on_next.on_next(indexed_count as u64);
+                }
             }
             Err(e) => {
                 eprintln!("{}", e)
@@ -140,8 +164,10 @@ pub async fn solr_post(
     // output time
     info!("indexing complete");
 
-    // call the finish callback
-    on_finish();
+    if let Some(mut on_finish) = config.on_finish {
+        // call the finish callback
+        on_finish.on_finish();
+    }
 
     total_files_to_index
 }
