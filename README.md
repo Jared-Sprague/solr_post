@@ -10,6 +10,7 @@ The library provides a function called `solr_post()` which you pass a `PostConfi
 
 ```
 use solr_post::{PostConfig, solr_post};
+std::path::PathBuf;
 
 #[tokio::main]
 async fn main() {
@@ -18,7 +19,7 @@ async fn main() {
         host: String::from("localhost"),
         port: 8983,
         collection: String::from("my_collection"),
-        directory_path: std::path::PathBuf::from("/var/www/html"),
+        directory_path: PathBuf::from("/var/www/html"),
         ..Default::default()
     };
 
