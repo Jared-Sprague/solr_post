@@ -9,7 +9,7 @@ The library provides a function called `solr_post()` which you pass a `PostConfi
 
 ### Basic Example
 
-```
+```rust
 use solr_post::{PostConfig, solr_post};
 std::path::PathBuf;
 
@@ -33,7 +33,7 @@ In this example we will index files located in /var/www/html recursively to coll
 
 ### Example using progress callbacks
 
-```
+```rust
 use solr_post::{solr_post, PostConfig};
 use std::io::{self, Write};
 use std::sync::{Mutex, OnceLock};
