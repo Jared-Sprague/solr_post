@@ -11,7 +11,7 @@ The library provides a function called `solr_post()` which you pass a `PostConfi
 
 ```rust
 use solr_post::{PostConfig, solr_post};
-std::path::PathBuf;
+use std::path::PathBuf;
 
 #[tokio::main]
 async fn main() {
